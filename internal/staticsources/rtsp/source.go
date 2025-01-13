@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -63,13 +62,13 @@ func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 
 // Source is a RTSP static source.
 type Source struct {
-	ReadTimeout    conf.StringDuration
-	WriteTimeout   conf.StringDuration
+	ReadTimeout    conf.Duration
+	WriteTimeout   conf.Duration
 	WriteQueueSize int
 	Parent         defs.StaticSourceParent
 }
 
-// Log implements StaticSource.
+// Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 	s.Parent.Log(level, "[RTSP source] "+format, args...)
 }
@@ -81,12 +80,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	c := &gortsplib.Client{
-		Transport:      params.Conf.SourceProtocol.Transport,
+		Transport:      params.Conf.RTSPTransport.Transport,
 		TLSConfig:      tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
 		ReadTimeout:    time.Duration(s.ReadTimeout),
 		WriteTimeout:   time.Duration(s.WriteTimeout),
 		WriteQueueSize: s.WriteQueueSize,
-		AnyPortEnable:  params.Conf.SourceAnyPortEnable,
+		AnyPortEnable:  params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
@@ -104,7 +103,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	u, err := url.Parse(params.Conf.Source)
+	u, err := base.ParseURL(params.ResolvedSource)
 	if err != nil {
 		return err
 	}
@@ -144,7 +143,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 					cforma := forma
 
 					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-						pts, ok := c.PacketPTS(cmedi, pkt)
+						pts, ok := c.PacketPTS2(cmedi, pkt)
 						if !ok {
 							return
 						}
