@@ -5,6 +5,7 @@ WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
+RUN go generate ./...
 RUN go build -o /out .
 WORKDIR /
 ARG CONFIG_RUN
@@ -28,7 +29,7 @@ paths:
 
 #  proxied:
 #    source: rtsp://192.168.2.198:554/stream
-#    sourceProtocol: tcp
+#    rtspTransport: tcp
 #    sourceOnDemand: yes
 #    runOnDemand: ffmpeg -i rtsp://192.168.2.198:554/stream -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/proxied2
 
